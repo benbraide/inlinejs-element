@@ -1,2 +1,2 @@
-# inlinejs-element
-JavaScript custom element wrapper for the InlineJS reactive framework
+# inlinejs-canvas
+HTML5 extension to the InlineJS reactive framework
