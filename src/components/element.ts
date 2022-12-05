@@ -6,11 +6,11 @@ import { SetValue } from "../utilities/set-value";
 export class CustomElement<ShadowType = Element> extends HTMLElement{
     protected state_: Record<string, any> = {};
     
-    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType){
+    public constructor(state?: Record<string, any>, allowWatch = false, protected shadow_?: ShadowType){
         super();
         
         state && (this.state_ = { ...this.state_, ...state });
-        if (!CustomElement.IsWatchingChange_()){
+        if (allowWatch && !CustomElement.IsWatchingChange_()){
             let dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
             let altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
 
