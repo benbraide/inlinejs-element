@@ -1,4 +1,4 @@
-export declare class CustomElement<ShadowType = Element> extends HTMLElement {
+export declare class CustomTextareaElement<ShadowType = Element> extends HTMLTextAreaElement {
     protected shadow_?: ShadowType | undefined;
     private wrapper_;
     protected state_: Record<string, any>;

@@ -1,9 +1,12 @@
 import { CustomElementWrapper } from "./wrapper";
-export class CustomElement extends HTMLElement {
-    constructor(state, allowWatch = false, shadow_) {
+
+export class CustomTextareaElement<ShadowType = Element> extends HTMLTextAreaElement{
+    private wrapper_: CustomElementWrapper<ShadowType>;
+    protected state_: Record<string, any> = {};
+    
+    public constructor(state?: Record<string, any>, allowWatch = false, protected shadow_?: ShadowType){
         super();
-        this.shadow_ = shadow_;
-        this.state_ = {};
+
         this.wrapper_ = new CustomElementWrapper(this, this.state_, state, allowWatch, shadow_);
         this.wrapper_.SetCallbacks({
             AttributeChanged: (name) => this.AttributeChanged_(name),
@@ -12,14 +15,18 @@ export class CustomElement extends HTMLElement {
             Cast: (name, value) => this.Cast_(name, value),
         });
     }
-    AttributeChanged_(name) {
+
+    protected AttributeChanged_(name: string){
         this.wrapper_.AttributeChanged(name, true);
     }
-    ShouldRefreshOnChange_(name) {
+
+    protected ShouldRefreshOnChange_(name: string){
         return this.wrapper_.ShouldRefreshOnChange(name, true);
     }
-    Refresh_() { }
-    Cast_(name, value) {
+
+    protected Refresh_(){}
+
+    protected Cast_(name: string, value: any){
         return this.wrapper_.Cast(name, value, true);
     }
 }
