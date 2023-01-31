@@ -1,4 +1,4 @@
-export declare class CustomImageElement<ShadowType = Element> extends HTMLImageElement {
+export declare class CustomAnchorElement<ShadowType = Element> extends HTMLAnchorElement {
     protected shadow_?: ShadowType | undefined;
     private wrapper_;
     protected state_: Record<string, any>;

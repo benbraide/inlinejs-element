@@ -1,4 +1,4 @@
-export declare class CustomImageElement<ShadowType = Element> extends HTMLImageElement {
+export declare class CustomTemplateElement<ShadowType = Element> extends HTMLTemplateElement {
     protected shadow_?: ShadowType | undefined;
     private wrapper_;
     protected state_: Record<string, any>;

@@ -16,3 +16,6 @@ export * from './components/input';
 export * from './components/select';
 export * from './components/textarea';
 export * from './components/form';
+export * from './components/anchor';
+export * from './components/image';
+export * from './components/template';
