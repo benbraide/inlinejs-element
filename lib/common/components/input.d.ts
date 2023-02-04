@@ -1,8 +1,10 @@
+import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 export declare class CustomInputElement<ShadowType = Element> extends HTMLInputElement {
     protected shadow_?: ShadowType | undefined;
     private wrapper_;
     protected state_: Record<string, any>;
-    constructor(state?: Record<string, any>, allowWatch?: boolean, shadow_?: ShadowType | undefined);
+    constructor(state?: Record<string, any>, shadow_?: ShadowType | undefined);
+    OnElementScopeCreated(params: IElementScopeCreatedCallbackParams): void;
     protected AttributeChanged_(name: string): void;
     protected ShouldRefreshOnChange_(name: string): boolean;
     protected Refresh_(): void;

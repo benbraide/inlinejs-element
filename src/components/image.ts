@@ -1,19 +1,24 @@
+import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { CustomElementWrapper } from "./wrapper";
 
 export class CustomImageElement<ShadowType = Element> extends HTMLImageElement{
     private wrapper_: CustomElementWrapper<ShadowType>;
     protected state_: Record<string, any> = {};
     
-    public constructor(state?: Record<string, any>, allowWatch = false, protected shadow_?: ShadowType){
+    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType){
         super();
 
-        this.wrapper_ = new CustomElementWrapper(this, this.state_, state, allowWatch, shadow_);
+        this.wrapper_ = new CustomElementWrapper(this, this.state_, state, shadow_);
         this.wrapper_.SetCallbacks({
             AttributeChanged: (name) => this.AttributeChanged_(name),
             ShouldRefreshOnChange: (name) => this.ShouldRefreshOnChange_(name),
             Refresh: () => this.Refresh_(),
             Cast: (name, value) => this.Cast_(name, value),
         });
+    }
+
+    public OnElementScopeCreated(params: IElementScopeCreatedCallbackParams){
+        this.wrapper_.OnElementScopeCreated(params);
     }
 
     protected AttributeChanged_(name: string){

@@ -1,4 +1,4 @@
-import { FindComponentById, GetGlobal, IMutationObserverAttributeInfo, IsObject, ToString } from "@benbraide/inlinejs";
+import { IElementScopeCreatedCallbackParams, IMutationObserverAttributeInfo, IsObject, ToCamelCase, ToString } from "@benbraide/inlinejs";
 import { GetKeys } from "../utilities/get-keys";
 import { KeyExists } from "../utilities/key-exists";
 import { SetValue } from "../utilities/set-value";
@@ -13,24 +13,24 @@ interface ICustomElementCallbacks{
 export class CustomElementWrapper<ShadowType = Element>{
     private callbacks_: ICustomElementCallbacks | null = null;
 
-    public constructor(private el_: HTMLElement, private state_: Record<string, any>, state?: Record<string, any>, allowWatch = false, private shadow_?: ShadowType){
+    public constructor(private el_: HTMLElement, private state_: Record<string, any>, state?: Record<string, any>, private shadow_?: ShadowType){
         state && Object.entries(state).forEach(([key, value]) => (this.state_[key] = value));
-        if (allowWatch && !CustomElementWrapper.IsWatchingChange_()){
-            let dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
-            let altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
+    }
 
-            let farthestAncestor: Node | null = null;
-            for (let ancestor: Node | null = this.el_; ancestor; ancestor = ancestor.parentNode){//Find root component element
-                if ((ancestor instanceof Element) && (ancestor.hasAttribute(dataDirective) || ancestor.hasAttribute(altDataDirective))){
-                    farthestAncestor = ancestor;
-                }
+    public OnElementScopeCreated({ scope }: IElementScopeCreatedCallbackParams){
+        scope.AddAttributeChangeCallback((attrName) => {
+            if (!attrName){
+                return;
             }
 
-            let component = GetGlobal().CreateComponent((farthestAncestor as HTMLElement) || this.el_), componentId = component.GetId();
-
-            component.CreateElementScope(this.el_)?.AddUninitCallback(() => FindComponentById(componentId)?.RemoveAttributeChangeCallback(this.el_));
-            component.AddAttributeChangeCallback(this.el_, attributes => CustomElementWrapper.OnChange_(attributes));
-        }
+            let callbackName = `${ToCamelCase(attrName, true, '-')}Changed`;// E.g 'SizeChanged'
+            if (callbackName in this.el_ && typeof this.el_[callbackName] === 'function'){
+                this.el_[callbackName]();
+            }
+            else if (KeyExists(attrName, this.state_)){
+                this.callbacks_?.AttributeChanged(attrName);
+            }
+        });
     }
 
     public SetCallbacks(callbacks: ICustomElementCallbacks){
@@ -92,11 +92,5 @@ export class CustomElementWrapper<ShadowType = Element>{
                 (attr.target as any).AttributeChanged_(attr.name);
             }
         });
-    }
-
-    protected static IsWatchingChange_(update = true){
-        let state = !!(globalThis['InlineJS'] = (globalThis['InlineJS'] || {}))['customElementWatchState'];
-        update && (globalThis['InlineJS']['customElementWatchState'] = true);
-        return state;
     }
 }
