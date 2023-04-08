@@ -13,8 +13,39 @@ interface ICustomElementCallbacks{
 export class CustomElementWrapper<ShadowType = Element>{
     private callbacks_: ICustomElementCallbacks | null = null;
 
+    private booleanAttributes_ = new Array<string>();
+    private nonBooleanAttributes_ = new Array<string>();
+
     public constructor(private el_: HTMLElement, private state_: Record<string, any>, state?: Record<string, any>, private shadow_?: ShadowType){
         state && Object.entries(state).forEach(([key, value]) => (this.state_[key] = value));
+    }
+
+    public AddBooleanAttribute(name: string){
+        this.booleanAttributes_.push(name);
+    }
+
+    public RemoveBooleanAttribute(name: string){
+        this.booleanAttributes_ = this.booleanAttributes_.filter(n => (n !== name));
+    }
+
+    public AddNonBooleanAttribute(name: string){
+        this.nonBooleanAttributes_.push(name);
+    }
+
+    public RemoveNonBooleanAttribute(name: string){
+        this.nonBooleanAttributes_ = this.nonBooleanAttributes_.filter(n => (n !== name));
+    }
+    
+    public IsBooleanAttribute(name: string){
+        if (this.nonBooleanAttributes_.includes(name)){
+            return false;
+        }
+
+        if (this.booleanAttributes_.includes(name)){
+            return true;
+        }
+
+        return null;
     }
 
     public OnElementScopeCreated({ scope }: IElementScopeCreatedCallbackParams){

@@ -2,7 +2,7 @@ import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { CustomElementWrapper } from "./wrapper";
 
 export class CustomButtonElement<ShadowType = Element> extends HTMLButtonElement{
-    private wrapper_: CustomElementWrapper<ShadowType>;
+    protected wrapper_: CustomElementWrapper<ShadowType>;
     protected state_: Record<string, any> = {};
     
     public constructor(state?: Record<string, any>, protected shadow_?: ShadowType){
@@ -15,6 +15,10 @@ export class CustomButtonElement<ShadowType = Element> extends HTMLButtonElement
             Refresh: () => this.Refresh_(),
             Cast: (name, value) => this.Cast_(name, value),
         });
+    }
+
+    public IsBooleanAttribute(name: string){
+        return this.wrapper_.IsBooleanAttribute(name);
     }
 
     public OnElementScopeCreated(params: IElementScopeCreatedCallbackParams){
