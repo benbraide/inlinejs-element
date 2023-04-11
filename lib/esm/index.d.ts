@@ -21,6 +21,7 @@ export * from './components/input';
 export * from './components/label';
 export * from './components/object';
 export * from './components/option';
+export * from './components/paragraph';
 export * from './components/select';
 export * from './components/span';
 export * from './components/template';
