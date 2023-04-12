@@ -16,7 +16,7 @@ export function SetValue(target: Record<string, any>, key: string, value: any, c
 
     for (let ownKey of Object.keys(target)){
         if (IsObject(target[ownKey])){
-            let result = SetValue(target[ownKey], key, value);
+            let result = SetValue(target[ownKey], key, value, cast);
             if (result){
                 return result;
             }

@@ -1,12 +1,16 @@
 import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
-import { CustomElementWrapper } from "./wrapper";
-export declare class CustomElement<ShadowType = Element> extends HTMLElement {
+export declare class CustomElement<ShadowType extends Element = Element> extends HTMLElement {
     protected shadow_?: ShadowType | undefined;
-    protected wrapper_: CustomElementWrapper<ShadowType>;
     protected state_: Record<string, any>;
+    protected booleanAttributes_: string[];
+    protected nonBooleanAttributes_: string[];
     constructor(state?: Record<string, any>, shadow_?: ShadowType | undefined);
+    AddBooleanAttribute(name: string): void;
+    RemoveBooleanAttribute(name: string): void;
+    AddNonBooleanAttribute(name: string): void;
+    RemoveNonBooleanAttribute(name: string): void;
     IsBooleanAttribute(name: string): boolean | null;
-    OnElementScopeCreated(params: IElementScopeCreatedCallbackParams): void;
+    OnElementScopeCreated({ scope }: IElementScopeCreatedCallbackParams): void;
     protected AttributeChanged_(name: string): void;
     protected ShouldRefreshOnChange_(name: string): boolean;
     protected Refresh_(): void;

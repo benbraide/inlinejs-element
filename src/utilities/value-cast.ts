@@ -11,6 +11,12 @@ export function ValueCast(target: any, value: any){
     }
 
     if (Array.isArray(target)){
+        try{
+            let value = JSON.parse(stringValue);
+            return (Array.isArray(value) ? value : []);
+        }
+        catch{}
+        
         return stringValue.split(',');
     }
 
