@@ -10,23 +10,14 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
     protected booleanAttributes_ = new Array<string>();
     protected nonBooleanAttributes_ = new Array<string>();
     
-    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType){
+    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType, initializeBooleanAttributes = true, disableImplicitData = false){
         super();
 
         state && Object.entries(state).forEach(([key, value]) => (this.state_[key] = value));
+        initializeBooleanAttributes && this.InitializeBooleanAttributesFromState_();
+        this.InitializeStateFromAttributes_();
 
-        const keys = GetKeys(this.state_);
-        Array.from(this.attributes).filter(attr => keys.includes(attr.name)).forEach((attr) => {//Initialize state from attributes
-            let [key, value] = (SetValue(this.state_, attr.name, this.Cast_(attr.name, attr.value), false) || []);
-            if (key && IsObject(value)){
-                Object.entries(value).forEach(([key, value]) => (this.shadow_ && this.shadow_.setAttribute(key, ToString(value))));
-            }
-            else if (key){
-                (this.shadow_ && this.shadow_.setAttribute(key, ToString(value)));
-            }
-        });
-
-        if (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData']){
+        if (!disableImplicitData && (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData'])){
             const dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
             const altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
             
@@ -42,20 +33,20 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
         }
     }
 
-    public AddBooleanAttribute(name: string){
-        this.booleanAttributes_.push(name);
+    public AddBooleanAttribute(name: string | Array<string>){
+        Array.isArray(name) ? this.booleanAttributes_.push(...name) : this.booleanAttributes_.push(name);
     }
 
-    public RemoveBooleanAttribute(name: string){
-        this.booleanAttributes_ = this.booleanAttributes_.filter(n => (n !== name));
+    public RemoveBooleanAttribute(name: string | Array<string>){
+        this.booleanAttributes_ = (Array.isArray(name) ? this.booleanAttributes_.filter(n => !name.includes(n)) : this.booleanAttributes_.filter(n => (n !== name)));
     }
 
-    public AddNonBooleanAttribute(name: string){
-        this.nonBooleanAttributes_.push(name);
+    public AddNonBooleanAttribute(name: string | Array<string>){
+        Array.isArray(name) ? this.nonBooleanAttributes_.push(...name) : this.nonBooleanAttributes_.push(name);
     }
 
-    public RemoveNonBooleanAttribute(name: string){
-        this.nonBooleanAttributes_ = this.nonBooleanAttributes_.filter(n => (n !== name));
+    public RemoveNonBooleanAttribute(name: string | Array<string>){
+        this.nonBooleanAttributes_ = (Array.isArray(name) ? this.nonBooleanAttributes_.filter(n => !name.includes(n)) : this.nonBooleanAttributes_.filter(n => (n !== name)));
     }
     
     public IsBooleanAttribute(name: string){
@@ -86,8 +77,25 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
         });
     }
 
+    protected InitializeBooleanAttributesFromState_(except?: Array<string>){
+        this.AddBooleanAttribute(Object.entries(this.state_).filter(([key, value]) => (typeof value === 'boolean' && (!except || !except.includes(key)))).map(([key, value]) => key));
+    }
+
+    protected InitializeStateFromAttributes_(whitelist?: Array<string>){
+        const keys = GetKeys(this.state_);
+        Array.from(this.attributes).filter(attr => (keys.includes(attr.name) && (!whitelist || whitelist.includes(attr.name)))).forEach((attr) => {
+            let [key, value] = (SetValue(this.state_, attr.name, this.Cast_(attr.name, attr.value), true) || []);
+            if (key && IsObject(value)){
+                Object.entries(value).forEach(([key, value]) => (this.shadow_ && this.shadow_.setAttribute(key, ToString(value))));
+            }
+            else if (key){
+                (this.shadow_ && this.shadow_.setAttribute(key, ToString(value)));
+            }
+        });
+    }
+
     protected AttributeChanged_(name: string){
-        let [key, value] = (SetValue(this.state_, name, this.Cast_(name, (this.getAttribute(name) || '')), false) || []);
+        let [key, value] = (SetValue(this.state_, name, this.Cast_(name, (this.getAttribute(name) || '')), true) || []);
         if (key){//State updated
             if (IsObject(value)){
                 Object.entries(value).forEach(([key, value]) => (this.shadow_ && this.shadow_.setAttribute(key, ToString(value))));
@@ -111,6 +119,6 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
             return value;
         }
         
-        return ((typeof this.state_[name] === 'boolean') ? this.hasAttribute(name) : ValueCast(this.state_[name], value));
+        return ((this.state_.hasOwnProperty(name) && typeof this.state_[name] === 'boolean') ? this.hasAttribute(name) : value);
     }
 }
