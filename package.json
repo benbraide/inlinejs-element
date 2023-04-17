@@ -1,6 +1,6 @@
 {
   "name": "@benbraide/inlinejs-element",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Run javascript code by embedding them in your HTML using the element as context.",
   "main": "./lib/common/index.js",
   "module": "./lib/esm/index.js",
@@ -51,7 +51,7 @@
     "webpack": "^5.41.0"
   },
   "dependencies": {
-    "@benbraide/inlinejs": "^1.0.36",
+    "@benbraide/inlinejs": "^1.0.37",
     "webpack-cli": "^4.7.2"
   }
 }
