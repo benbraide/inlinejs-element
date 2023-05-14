@@ -1,21 +1,24 @@
-import { GetGlobal, IElementScopeCreatedCallbackParams, IsObject, ToCamelCase, ToString } from "@benbraide/inlinejs";
+import { FindComponentById, GetGlobal, IElementScopeCreatedCallbackParams, IsObject, ToCamelCase, ToString } from "@benbraide/inlinejs";
 import { KeyExists } from "../utilities/key-exists";
 import { GetKeys } from "../utilities/get-keys";
 import { SetValue } from "../utilities/set-value";
-import { ValueCast } from "../utilities/value-cast";
 
 export class CustomElement<ShadowType extends Element = Element> extends HTMLElement{
-    protected state_: Record<string, any> = {};
+    protected componentId_ = '';
+    
+    protected state_: Record<string, any> = {
+        'component': '',
+    };
 
     protected booleanAttributes_ = new Array<string>();
     protected nonBooleanAttributes_ = new Array<string>();
     
-    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType, initializeBooleanAttributes = true, disableImplicitData = false){
+    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType, initializeBooleanAttributes = true, disableImplicitData = false, protected isTemplate_ = false){
         super();
 
         state && Object.entries(state).forEach(([key, value]) => (this.state_[key] = value));
         initializeBooleanAttributes && this.InitializeBooleanAttributesFromState_();
-        this.InitializeStateFromAttributes_();
+        this.isTemplate_ && (this.style.display = 'none');
 
         if (!disableImplicitData && (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData'])){
             const dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
@@ -61,7 +64,14 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
         return null;
     }
 
-    public OnElementScopeCreated({ scope }: IElementScopeCreatedCallbackParams){
+    public IsTemplate(){
+        return this.isTemplate_;
+    }
+
+    public OnElementScopeCreated({ scope, component, componentId }: IElementScopeCreatedCallbackParams){
+        this.componentId_ = componentId;
+        this.InitializeStateFromAttributes_();
+        
         scope.AddAttributeChangeCallback((attrName) => {
             if (!attrName){
                 return;
@@ -75,6 +85,8 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
                 this.AttributeChanged_(attrName);
             }
         });
+
+        this.state_['component'] && (component || FindComponentById(componentId))?.FindScopeByRoot(this)?.SetName(this.state_['component']);
     }
 
     protected InitializeBooleanAttributesFromState_(except?: Array<string>){
@@ -97,12 +109,14 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
     protected AttributeChanged_(name: string){
         let [key, value] = (SetValue(this.state_, name, this.Cast_(name, (this.getAttribute(name) || '')), true) || []);
         if (key){//State updated
-            if (IsObject(value)){
-                Object.entries(value).forEach(([key, value]) => (this.shadow_ && this.shadow_.setAttribute(key, ToString(value))));
+            if (this.shadow_ && IsObject(value)){
+                Object.entries(value).forEach(([key, value]) => this.shadow_!.setAttribute(key, ToString(value)));
             }
-            else{
-                (this.shadow_ && this.shadow_.setAttribute(key, ToString(value)));
+            else if (this.shadow_){
+                this.shadow_.setAttribute(key, ToString(value));
             }
+
+            (key === 'component') && FindComponentById(this.componentId_)?.FindScopeByRoot(this)?.SetName(ToString(value));
 
             (this.ShouldRefreshOnChange_(key) && this.Refresh_());//Refresh if possible
         }
