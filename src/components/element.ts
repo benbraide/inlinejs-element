@@ -1,26 +1,49 @@
-import { FindComponentById, GetGlobal, IElementScopeCreatedCallbackParams, IsObject, ToCamelCase, ToString } from "@benbraide/inlinejs";
-import { KeyExists } from "../utilities/key-exists";
-import { GetKeys } from "../utilities/get-keys";
-import { SetValue } from "../utilities/set-value";
+import { FindComponentById, GetGlobal, IElementScopeCreatedCallbackParams, IsObject, JournalTry, RetrieveStoredObject, ToSnakeCase, ToString } from "@benbraide/inlinejs";
+import { GetProperties, GetPropertyScope, IProperty, Property } from "../decorators/property";
 
-export class CustomElement<ShadowType extends Element = Element> extends HTMLElement{
+export interface ICustomElementOptions{
+    disableImplicitData?: boolean;
+    isTemplate?: boolean;
+    isHidden?: boolean;
+}
+
+export type ICustomElementAttributeChangeHandlerCallback = (value: any, context: HTMLElement) => void;
+
+export interface ICustomElementAttributeChangeHandlerInfo{
+    handler: ICustomElementAttributeChangeHandlerCallback;
+    type?: string;
+    checkStoredObject?: boolean;
+}
+
+export class CustomElement extends HTMLElement{
     protected componentId_ = '';
-    
-    protected state_: Record<string, any> = {
-        'component': '',
-    };
+    protected nativeElement_: HTMLElement | null = null;
+
+    protected nativeAttributesBlacklist_ = new Array<string>();
+    protected nativeAttributesWhitelist_ = new Array<string>();
+
+    protected propertyScopes_ = new Array<string>();
+    protected instanceProperties_ = new Array<IProperty>();
+    protected instancePropertyNames_ = new Array<string>();
+
+    protected attributeChangeHandlers_: Record<string, Array<ICustomElementAttributeChangeHandlerInfo>> = {};
+    protected spreads_: Record<string, Array<string>> = {};
+    protected storedObjects_: Record<string, string> = {};
 
     protected booleanAttributes_ = new Array<string>();
     protected nonBooleanAttributes_ = new Array<string>();
+
+    @Property({ type: 'string' })
+    public UpdateComponentProperty(value: string){
+        FindComponentById(this.componentId_)?.FindScopeByRoot(this)?.SetName(value.trim());
+    }
     
-    public constructor(state?: Record<string, any>, protected shadow_?: ShadowType, initializeBooleanAttributes = true, disableImplicitData = false, protected isTemplate_ = false){
+    public constructor(protected options_: ICustomElementOptions = {}){
         super();
+        
+        (this.options_.isTemplate || this.options_.isHidden) && (this.style.display = 'none');
 
-        state && Object.entries(state).forEach(([key, value]) => (this.state_[key] = value));
-        initializeBooleanAttributes && this.InitializeBooleanAttributesFromState_();
-        this.isTemplate_ && (this.style.display = 'none');
-
-        if (!disableImplicitData && (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData'])){
+        if (!this.options_.disableImplicitData && (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData'])){
             const dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
             const altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
             
@@ -32,7 +55,7 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
                 }
             }
 
-            !farthestAncestor && this.setAttribute('x-data', '');
+            !farthestAncestor && this.setAttribute(dataDirective, '');
         }
     }
 
@@ -65,74 +88,212 @@ export class CustomElement<ShadowType extends Element = Element> extends HTMLEle
     }
 
     public IsTemplate(){
-        return this.isTemplate_;
+        return this.options_.isTemplate;
     }
 
-    public OnElementScopeCreated({ scope, component, componentId }: IElementScopeCreatedCallbackParams){
-        this.componentId_ = componentId;
-        this.InitializeStateFromAttributes_();
-        
-        scope.AddAttributeChangeCallback((attrName) => {
-            if (!attrName){
-                return;
-            }
+    public OnElementScopeCreated(params: IElementScopeCreatedCallbackParams){
+        this.HandleElementScopeCreated_(params);
+    }
 
-            let callbackName = `${ToCamelCase(attrName, true, '-')}Changed`;// E.g 'SizeChanged'
-            if (callbackName in this && typeof this[callbackName] === 'function'){
-                this[callbackName]();
+    protected AddPropertyScope_(name: string){
+        this.propertyScopes_.push(GetPropertyScope(CustomElement, name));
+    }
+
+    protected FindProperty_(name: string){
+        return this.instanceProperties_.find(prop => (prop.name === name));
+    }
+
+    protected GetAllProperties_(){
+        let props = new Array<IProperty>(), properties = GetProperties();
+        for (let scope of this.propertyScopes_){
+            if (properties.hasOwnProperty(scope)){
+                props.push(...Object.values(properties[scope]));
             }
-            else if (KeyExists(attrName, this.state_)){
-                this.AttributeChanged_(attrName);
+        }
+        return props;
+    }
+
+    protected HandleElementScopeCreated_({ scope, componentId }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
+        this.componentId_ = componentId;
+        this.propertyScopes_ = this.ComputePropertyScopes_();
+        
+        (this.instanceProperties_ = this.GetAllProperties_()).forEach((property) => {
+            (property.type === 'boolean') && this.booleanAttributes_.push(property.name);
+            
+            const spread = (property.spread && ToSnakeCase(property.spread));
+            if (spread && this.spreads_.hasOwnProperty(spread)){
+                this.spreads_[spread].push(property.name);
+            }
+            else if (spread){
+                this.spreads_[spread] = [property.name];
             }
         });
 
-        this.state_['component'] && (component || FindComponentById(componentId))?.FindScopeByRoot(this)?.SetName(this.state_['component']);
-    }
+        this.instancePropertyNames_ = this.instanceProperties_.map(p => p.name);
 
-    protected InitializeBooleanAttributesFromState_(except?: Array<string>){
-        this.AddBooleanAttribute(Object.entries(this.state_).filter(([key, value]) => (typeof value === 'boolean' && (!except || !except.includes(key)))).map(([key, value]) => key));
+        scope.AddPostAttributesProcessCallback(() => {
+            this.instanceProperties_.forEach((property) => {
+                property.initial && property.setInitial && property.setInitial(this.EncodeValue_(property.initial, property.type), this);
+            });
+            this.InitializeStateFromAttributes_();
+            postAttributesCallback && postAttributesCallback();
+        });
+
+        scope.AddAttributeChangeCallback(name => (name && this.AttributeChanged_(name)));
+
+        scope.AddUninitCallback(() => (this.nativeElement_ = null));
     }
 
     protected InitializeStateFromAttributes_(whitelist?: Array<string>){
-        const keys = GetKeys(this.state_);
-        Array.from(this.attributes).filter(attr => (keys.includes(attr.name) && (!whitelist || whitelist.includes(attr.name)))).forEach((attr) => {
-            let [key, value] = (SetValue(this.state_, attr.name, this.Cast_(attr.name, attr.value), true) || []);
-            if (key && IsObject(value)){
-                Object.entries(value).forEach(([key, value]) => (this.shadow_ && this.shadow_.setAttribute(key, ToString(value))));
+        let attributes = Array.from(this.attributes);
+        whitelist && (attributes = attributes.filter(({ name }) => whitelist.includes(name)));
+        attributes.forEach(({ name }) => this.AttributeChanged_(name));
+    }
+
+    protected EncodeValue_(value: any, type: string){
+        if (type === 'boolean'){
+            return (value ? 'true' : 'false');
+        }
+
+        if (type === 'json'){
+            return JSON.stringify(value);
+        }
+
+        if (type === 'array'){
+            return (value || []).join(',');
+        }
+
+        if (type.startsWith('array:')){
+            return (value || []).map((v: any) => this.EncodeValue_(v, type.substring(6))).join(',');
+        }
+
+        if (type === 'date'){
+            return (value || new Date()).toString();
+        }
+
+        return ToString(value);
+    }
+    
+    protected DecodeValue_(value: string | null, type: string, delimiter?: string){
+        if (type === 'string'){
+            return (value || '');
+        }
+        
+        if (type === 'boolean'){
+            return (value !== null && value !== undefined && value !== '0' && value !== 'false');
+        }
+
+        if (type === 'number'){
+            return ((value === null) ? NaN : (parseFloat(value || '0') || 0));
+        }
+
+        if (type === 'json'){
+            try{
+                return JSON.parse(value || '');
             }
-            else if (key){
-                (this.shadow_ && this.shadow_.setAttribute(key, ToString(value)));
+            catch{}
+            return null;
+        }
+
+        if (type === 'array'){
+            return ((value || '').split(delimiter || ',').map(s => s.trim()) || []);
+        }
+
+        if (type.startsWith('array:')){
+            return ((value || '').split(delimiter || ',').map(s => this.DecodeValue_(s, type.substring(6), delimiter)) || []);
+        }
+
+        if (type === 'date'){
+            return new Date(value || '');
+        }
+        
+        return value;
+    }
+
+    protected SpreadValue_(value: string, keys: Array<string>){
+        let parts = value.split(' ');
+        keys.forEach((key, index) => {
+            if (index >= parts.length){
+                let resolvedIndex = ((index % 4) - 2);
+                this.DispatchAttributeChange_(key, ((resolvedIndex < 0 || resolvedIndex >= parts.length) ? parts[0] : parts[resolvedIndex]));
+            }
+            else{
+                this.DispatchAttributeChange_(key, parts[index]);
             }
         });
     }
 
-    protected AttributeChanged_(name: string){
-        let [key, value] = (SetValue(this.state_, name, this.Cast_(name, (this.getAttribute(name) || '')), true) || []);
-        if (key){//State updated
-            if (this.shadow_ && IsObject(value)){
-                Object.entries(value).forEach(([key, value]) => this.shadow_!.setAttribute(key, ToString(value)));
-            }
-            else if (this.shadow_){
-                this.shadow_.setAttribute(key, ToString(value));
-            }
-
-            (key === 'component') && FindComponentById(this.componentId_)?.FindScopeByRoot(this)?.SetName(ToString(value));
-
-            (this.ShouldRefreshOnChange_(key) && this.Refresh_());//Refresh if possible
-        }
-    }
-
-    protected ShouldRefreshOnChange_(name: string){
-        return true;
-    }
-
-    protected Refresh_(){}
-
-    protected Cast_(name: string, value: any){
-        if (!this.state_.hasOwnProperty(name)){
-            return value;
+    protected DispatchAttributeChange_(name: string, value: string | null){
+        let handled = false;
+        if (this.spreads_.hasOwnProperty(name)){
+            this.SpreadValue_((value || ''), this.spreads_[name]);
+            handled = true;
         }
         
-        return ((this.state_.hasOwnProperty(name) && typeof this.state_[name] === 'boolean') ? this.hasAttribute(name) : value);
+        const property = this.FindProperty_(name), storedKey = (this.storedObjects_.hasOwnProperty(name) && this.storedObjects_[name]);
+        if (property){
+            let callHandler: ((handler: ICustomElementAttributeChangeHandlerCallback) => void) | null = null;
+            if (property.checkStoredObject && value){
+                if (value === storedKey){//Duplicate
+                    return;
+                }
+                
+                const result = RetrieveStoredObject({
+                    key: value,
+                    componentId: this.componentId_,
+                    contextElement: this,
+                });
+
+                if (result !== value){
+                    this.storedObjects_[name] = value;
+                    (callHandler = (handler) => JournalTry(() => handler(result, this)));
+                }
+            }
+
+            if (callHandler){
+                callHandler(property.handler);
+            }
+            else{
+                JournalTry(() => property.handler(this.DecodeValue_(value, (property.type || 'string'), property.delimiter), this));
+            }
+
+            handled = true;
+        }
+
+        return handled;
     }
+    
+    protected AttributeChanged_(name: string){
+        if (this.nativeElement_ && name.startsWith('-')){//Pass to native element
+            const targetName = name.substring(1);
+            if (this.hasAttribute(name)){
+                this.nativeElement_.setAttribute(targetName, (this.getAttribute(name) || ''));
+            }
+            else if (this.nativeElement_.hasAttribute(targetName)){
+                this.nativeElement_.removeAttribute(targetName);
+            }
+        }
+        else{//Handle attribute change
+            const handled = this.DispatchAttributeChange_(name, this.getAttribute(name));
+            if (!handled && (this.nativeAttributesWhitelist_.includes(name) || !this.nativeAttributesBlacklist_.includes(name)) &&
+                this.nativeElement_ && !name.startsWith('data-') && !CustomElement.GlobalAttributes.includes(name)){
+                if (this.hasAttribute(name)){
+                    this.nativeElement_.setAttribute(name, (this.getAttribute(name) || ''));
+                }
+                else if (this.nativeElement_.hasAttribute(name)){
+                    this.nativeElement_.removeAttribute(name);
+                }
+            }
+        }
+    }
+
+    protected ComputePropertyScopes_(){
+        let hierarchy = new Array<string>();
+        for (let prototype = Object.getPrototypeOf(this); prototype && prototype !== HTMLElement.prototype; prototype = Object.getPrototypeOf(prototype)){
+            hierarchy.push(prototype.constructor.name);
+        }
+        return hierarchy;
+    }
+
+    public static GlobalAttributes = ['id', 'class', 'style', 'title', 'lang', 'dir', 'tabindex', 'accesskey', 'hidden', 'draggable', 'spellcheck', 'translate', 'contenteditable'];
 }
