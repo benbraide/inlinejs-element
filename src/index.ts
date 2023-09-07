@@ -9,3 +9,5 @@ export * from './components/resource-target';
 
 export * from './decorators/register';
 export * from './decorators/property';
+
+export * from './entry';
