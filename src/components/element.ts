@@ -1,5 +1,19 @@
-import { FindComponentById, GetGlobal, IElementScopeCreatedCallbackParams, IsObject, JournalTry, RetrieveStoredObject, ToSnakeCase, ToString } from "@benbraide/inlinejs";
+import {
+    FindComponentById,
+    GetGlobal,
+    IElementScopeCreatedCallbackParams,
+    IResourceConcept,
+    IResourceMixedItemInfo,
+    IsObject,
+    JournalTry,
+    ProcessDirectives,
+    RetrieveStoredObject,
+    ToSnakeCase,
+    ToString
+} from "@benbraide/inlinejs";
+
 import { GetProperties, GetPropertyScope, IProperty, Property } from "../decorators/property";
+import { INativeElement, IResourceTarget, CustomElementResourceType } from "../types";
 
 export interface ICustomElementOptions{
     disableImplicitData?: boolean;
@@ -15,9 +29,17 @@ export interface ICustomElementAttributeChangeHandlerInfo{
     checkStoredObject?: boolean;
 }
 
-export class CustomElement extends HTMLElement{
+export class CustomElement extends HTMLElement implements IResourceTarget{
     protected componentId_ = '';
+
+    protected resources_ = new Array<CustomElementResourceType>();
+    protected loadedResources_: any = null;
+
+    protected loadingResources_ = false;
+    protected queuedResourceHandlers_ = new Array<() => void>();
+
     protected nativeElement_: HTMLElement | null = null;
+    protected nativeElements_ = new Array<INativeElement & HTMLElement>();
 
     protected nativeAttributesBlacklist_ = new Array<string>();
     protected nativeAttributesWhitelist_ = new Array<string>();
@@ -57,6 +79,82 @@ export class CustomElement extends HTMLElement{
 
             !farthestAncestor && this.setAttribute(dataDirective, '');
         }
+    }
+
+    public AddResource(resource: CustomElementResourceType){
+        this.resources_.push(resource);
+    }
+
+    public RemoveResource(resource: CustomElementResourceType){
+        this.resources_ = this.resources_.filter(r => (r !== resource));
+    }
+
+    public LoadResources(){
+        if (this.loadingResources_){
+            return new Promise((resolve, reject) => {
+                this.queuedResourceHandlers_.push(() => {
+                    this.loadedResources_ ? resolve(this.loadedResources_) : reject();
+                });
+            });
+        }
+
+        if (this.loadedResources_){
+            return Promise.resolve(this.loadedResources_);
+        }
+        
+        this.loadingResources_ = true;
+        return new Promise((resolve, reject) => {
+            const promises = new Array<Promise<any>>(), resources = new Array<string | IResourceMixedItemInfo>(), doResolve = (data: any) => {
+                this.loadingResources_ = false;
+                this.loadedResources_ = data;
+                this.queuedResourceHandlers_.forEach(handler => handler());
+                this.queuedResourceHandlers_ = [];
+                resolve(data);
+            };
+
+            this.resources_.forEach((resource) => {
+                if (typeof resource === 'string'){
+                    resources.push(resource);
+                }
+                else if ('LoadResources' in resource){
+                    promises.push(resource.LoadResources());
+                }
+                else if ('GetResource' in resource){
+                    resources.push(resource.GetResource());
+                }
+                else{
+                    resources.push(resource);
+                }
+            });
+
+            if (resources.length > 0){//Load resources
+                const resourceConcept = GetGlobal().GetConcept<IResourceConcept>('resource');
+                if (resourceConcept){
+                    const promise = resourceConcept.Get({
+                        items: resources,
+                        attributes: this.GetResourceLoadAttributes_(),
+                        concurrent: this.IsConcurrentResourceLoad_(),
+                    });
+                    promises.push(promise);
+                }
+            }
+
+            if (promises.length == 0){//No resources
+                doResolve([]);
+            }
+            else{//Wait for resources
+                Promise.all(promises).then(doResolve).catch(reject);
+            }
+        });
+    }
+
+    public AddNativeElement(element: INativeElement & HTMLElement){
+        this.nativeElements_.push(element);
+        this.CopyNativeElements_(element);
+    }
+
+    public RemoveNativeElement(element: INativeElement){
+        this.nativeElements_ = this.nativeElements_.filter(e => (e !== element));
     }
 
     public AddBooleanAttribute(name: string | Array<string>){
@@ -138,6 +236,8 @@ export class CustomElement extends HTMLElement{
             this.InitializeStateFromAttributes_();
             postAttributesCallback && postAttributesCallback();
         });
+
+        scope.AddPostProcessCallback(() => (this.ShouldLoadResources_() && this.LoadResources()));
 
         scope.AddAttributeChangeCallback(name => (name && this.AttributeChanged_(name)));
 
@@ -264,13 +364,25 @@ export class CustomElement extends HTMLElement{
     }
     
     protected AttributeChanged_(name: string){
-        if (this.nativeElement_ && name.startsWith('-')){//Pass to native element
-            const targetName = name.substring(1);
-            if (this.hasAttribute(name)){
-                this.nativeElement_.setAttribute(targetName, (this.getAttribute(name) || ''));
+        let targetName = '';
+        if (this.nativeElement_){
+            if (name.startsWith('data-native-')){
+                targetName = name.substring(12);
             }
-            else if (this.nativeElement_.hasAttribute(targetName)){
-                this.nativeElement_.removeAttribute(targetName);
+            else if (name.startsWith('native-')){
+                targetName = name.substring(7);
+            }
+            else if (name.startsWith('-')){
+                targetName = name.substring(1);
+            }
+        }
+        
+        if (targetName){//Pass to native element
+            if (this.hasAttribute(name)){
+                this.nativeElement_!.setAttribute(targetName, (this.getAttribute(name) || ''));
+            }
+            else if (this.nativeElement_!.hasAttribute(targetName)){
+                this.nativeElement_!.removeAttribute(targetName);
             }
         }
         else{//Handle attribute change
@@ -293,6 +405,44 @@ export class CustomElement extends HTMLElement{
             hierarchy.push(prototype.constructor.name);
         }
         return hierarchy;
+    }
+
+    protected SetNativeElement_(element: HTMLElement | null){
+        if (element !== this.nativeElement_){
+            this.nativeElement_ = element;
+            this.CopyNativeElements_();
+        }
+    }
+
+    protected CopyNativeElements_(element?: INativeElement & HTMLElement){
+        if (!this.nativeElement_ || this.nativeElements_.length == 0){
+            return;
+        }
+        
+        (element ? [element] : this.nativeElements_).forEach((element) => {
+            element.GetAttributes().forEach(({ name, value }) => this.nativeElement_!.setAttribute(name, value));
+            for (let child = element.firstChild; child; child = element.firstChild){
+                child.remove();
+                this.nativeElement_!.appendChild(child);
+            }
+        });
+
+        ProcessDirectives({
+            component: this.componentId_,
+            element: this.nativeElement_,
+        });
+    }
+
+    protected GetResourceLoadAttributes_(): Record<string, string> | undefined{
+        return undefined;
+    }
+    
+    protected IsConcurrentResourceLoad_(){
+        return true;
+    }
+
+    protected ShouldLoadResources_(){
+        return true;
     }
 
     public static GlobalAttributes = ['id', 'class', 'style', 'title', 'lang', 'dir', 'tabindex', 'accesskey', 'hidden', 'draggable', 'spellcheck', 'translate', 'contenteditable'];

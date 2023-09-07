@@ -1,5 +1,6 @@
 import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { IProperty } from "../decorators/property";
+import { INativeElement, IResourceTarget, CustomElementResourceType } from "../types";
 export interface ICustomElementOptions {
     disableImplicitData?: boolean;
     isTemplate?: boolean;
@@ -11,10 +12,15 @@ export interface ICustomElementAttributeChangeHandlerInfo {
     type?: string;
     checkStoredObject?: boolean;
 }
-export declare class CustomElement extends HTMLElement {
+export declare class CustomElement extends HTMLElement implements IResourceTarget {
     protected options_: ICustomElementOptions;
     protected componentId_: string;
+    protected resources_: CustomElementResourceType[];
+    protected loadedResources_: any;
+    protected loadingResources_: boolean;
+    protected queuedResourceHandlers_: (() => void)[];
     protected nativeElement_: HTMLElement | null;
+    protected nativeElements_: (INativeElement & HTMLElement)[];
     protected nativeAttributesBlacklist_: string[];
     protected nativeAttributesWhitelist_: string[];
     protected propertyScopes_: string[];
@@ -27,6 +33,11 @@ export declare class CustomElement extends HTMLElement {
     protected nonBooleanAttributes_: string[];
     UpdateComponentProperty(value: string): void;
     constructor(options_?: ICustomElementOptions);
+    AddResource(resource: CustomElementResourceType): void;
+    RemoveResource(resource: CustomElementResourceType): void;
+    LoadResources(): Promise<any>;
+    AddNativeElement(element: INativeElement & HTMLElement): void;
+    RemoveNativeElement(element: INativeElement): void;
     AddBooleanAttribute(name: string | Array<string>): void;
     RemoveBooleanAttribute(name: string | Array<string>): void;
     AddNonBooleanAttribute(name: string | Array<string>): void;
@@ -45,5 +56,10 @@ export declare class CustomElement extends HTMLElement {
     protected DispatchAttributeChange_(name: string, value: string | null): boolean | undefined;
     protected AttributeChanged_(name: string): void;
     protected ComputePropertyScopes_(): string[];
+    protected SetNativeElement_(element: HTMLElement | null): void;
+    protected CopyNativeElements_(element?: INativeElement & HTMLElement): void;
+    protected GetResourceLoadAttributes_(): Record<string, string> | undefined;
+    protected IsConcurrentResourceLoad_(): boolean;
+    protected ShouldLoadResources_(): boolean;
     static GlobalAttributes: string[];
 }
