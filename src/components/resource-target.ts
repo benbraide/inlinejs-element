@@ -3,9 +3,9 @@ import { FindAncestor, IElementScopeCreatedCallbackParams } from "@benbraide/inl
 import { Property } from "../decorators/property";
 import { CustomElement } from "./element";
 import { RegisterCustomElement } from "../utilities/register";
-import { IResourceTarget } from "../types";
+import { IResourceTarget, IResourceTargetAdvanced } from "../types";
 
-export class ResourceTargetElement extends CustomElement{
+export class ResourceTargetElement extends CustomElement implements IResourceTargetAdvanced{
     protected attributes_: Record<string, string> | null = null;
     
     @Property({ type: 'object', checkStoredObject: true })
@@ -23,6 +23,10 @@ export class ResourceTargetElement extends CustomElement{
         super({
             isHidden: true,
         });
+    }
+
+    public LoadTargetResources(){
+        return this.LoadResources();
     }
 
     protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){

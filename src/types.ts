@@ -13,10 +13,14 @@ export interface IResourceSource{
     GetResource(): string | IResourceMixedItemInfo;
 }
 
-export type CustomElementResourceType = string | IResourceMixedItemInfo | IResourceSource | IResourceTarget;
+export type CustomElementResourceType = string | IResourceMixedItemInfo | IResourceSource | IResourceTargetAdvanced;
 
 export interface IResourceTarget{
     AddResource(resource: CustomElementResourceType): void;
     RemoveResource(resource: CustomElementResourceType): void;
     LoadResources(): Promise<any>;
+}
+
+export interface IResourceTargetAdvanced{
+    LoadTargetResources(): Promise<any>;
 }

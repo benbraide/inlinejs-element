@@ -9,9 +9,12 @@ export interface INativeElement {
 export interface IResourceSource {
     GetResource(): string | IResourceMixedItemInfo;
 }
-export declare type CustomElementResourceType = string | IResourceMixedItemInfo | IResourceSource | IResourceTarget;
+export declare type CustomElementResourceType = string | IResourceMixedItemInfo | IResourceSource | IResourceTargetAdvanced;
 export interface IResourceTarget {
     AddResource(resource: CustomElementResourceType): void;
     RemoveResource(resource: CustomElementResourceType): void;
     LoadResources(): Promise<any>;
+}
+export interface IResourceTargetAdvanced {
+    LoadTargetResources(): Promise<any>;
 }

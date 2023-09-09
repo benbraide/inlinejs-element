@@ -10,10 +10,15 @@ export class NativeElement extends CustomElement implements INativeElement{
     public constructor(){
         super();
 
-        Array.from(this.attributes).forEach(({ name, value }) => this.attributes_.push({ name, value }));
+        Array.from(this.attributes).forEach(({ name, value }) => {
+            this.attributes_.push({ name, value });
+            this.removeAttribute(name);
+        });
 
         this.options_.isTemplate = true;
         this.options_.isHidden = true;
+
+        this.style.display = 'none';
     }
     
     public GetAttributes(){

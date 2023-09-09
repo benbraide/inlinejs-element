@@ -116,8 +116,8 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
                 if (typeof resource === 'string'){
                     resources.push(resource);
                 }
-                else if ('LoadResources' in resource){
-                    promises.push(resource.LoadResources());
+                else if ('LoadTargetResources' in resource){
+                    promises.push(resource.LoadTargetResources());
                 }
                 else if ('GetResource' in resource){
                     resources.push(resource.GetResource());
