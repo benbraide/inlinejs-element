@@ -19,9 +19,24 @@ export class ResourceTargetElement extends CustomElement implements IResourceTar
     @Property({ type: 'boolean' })
     public defer = false;
 
+    @Property({ type: 'string' })
+    public onloaded = '';
+
     public constructor(){
         super({
             isHidden: true,
+        });
+    }
+
+    public LoadResources(){
+        const wasLoaded = this.loadedResources_;
+        return new Promise((resolve, reject) => {
+            super.LoadResources().then((data) => {
+                !wasLoaded && this.onloaded && this.EvaluateExpression(this.onloaded, {
+                    disableFunctionCall: false,
+                });
+                resolve(data);
+            }).catch(reject);
         });
     }
 

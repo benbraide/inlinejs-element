@@ -1,5 +1,7 @@
 import {
+    EvaluateLater,
     FindComponentById,
+    GeneratedFunctionType,
     GetGlobal,
     IElementScopeCreatedCallbackParams,
     IResourceConcept,
@@ -8,6 +10,7 @@ import {
     JournalTry,
     ProcessDirectives,
     RetrieveStoredObject,
+    StoreProxyHandler,
     ToSnakeCase,
     ToString
 } from "@benbraide/inlinejs";
@@ -29,8 +32,18 @@ export interface ICustomElementAttributeChangeHandlerInfo{
     checkStoredObject?: boolean;
 }
 
+export interface ICustomElementEvaluateOptions{
+    disableFunctionCall?: boolean;
+    waitPromise?: 'none' | 'default' | 'recursive';
+    voidOnly?: boolean;
+    callback?: (data: any) => void;
+    params?: any[];
+    contexts?: Record<string, any>;
+}
+
 export class CustomElement extends HTMLElement implements IResourceTarget{
     protected componentId_ = '';
+    protected storedProxyAccessHandler_: ((callback: () => void) => void) | null = null;
 
     protected resources_ = new Array<CustomElementResourceType>();
     protected loadedResources_: any = null;
@@ -193,6 +206,28 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         this.HandleElementScopeCreated_(params);
     }
 
+    public EvaluateExpression(expression: string, options?: ICustomElementEvaluateOptions){
+        return this.EvaluateWithStoredProxyAccessHandler(EvaluateLater({
+            componentId: this.componentId_,
+            contextElement: this,
+            expression,
+            disableFunctionCall: options?.disableFunctionCall,
+            waitPromise: options?.waitPromise,
+            voidOnly: options?.voidOnly,
+        }), options?.callback, options?.params, options?.contexts);
+    }
+    
+    public EvaluateWithStoredProxyAccessHandler(fn: GeneratedFunctionType, callback?: (data: any) => void, params?: any[], contexts?: Record<string, any>){
+        if (!this.storedProxyAccessHandler_){
+            return fn(callback, params, contexts);
+        }
+
+        let data: any;
+        this.storedProxyAccessHandler_(() => (data = fn(callback, params, contexts)));
+        
+        return data;
+    }
+
     protected AddPropertyScope_(name: string){
         this.propertyScopes_.push(GetPropertyScope(CustomElement, name));
     }
@@ -214,6 +249,8 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
     protected HandleElementScopeCreated_({ scope, componentId }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
         this.componentId_ = componentId;
         this.propertyScopes_ = this.ComputePropertyScopes_();
+
+        this.storedProxyAccessHandler_ = StoreProxyHandler(componentId);
         
         (this.instanceProperties_ = this.GetAllProperties_()).forEach((property) => {
             (property.type === 'boolean') && this.booleanAttributes_.push(property.name);
@@ -241,7 +278,10 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
 
         scope.AddAttributeChangeCallback(name => (name && this.AttributeChanged_(name)));
 
-        scope.AddUninitCallback(() => (this.nativeElement_ = null));
+        scope.AddUninitCallback(() => {
+            this.nativeElement_ = null;
+            this.storedProxyAccessHandler_ = null;
+        });
     }
 
     protected InitializeStateFromAttributes_(whitelist?: Array<string>){

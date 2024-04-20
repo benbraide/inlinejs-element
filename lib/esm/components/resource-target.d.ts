@@ -6,8 +6,10 @@ export declare class ResourceTargetElement extends CustomElement implements IRes
     UpdateAttributesProperty(value: Record<string, string> | null): void;
     sequential: boolean;
     defer: boolean;
+    onloaded: string;
     constructor();
-    LoadTargetResources(): Promise<any>;
+    LoadResources(): Promise<unknown>;
+    LoadTargetResources(): Promise<unknown>;
     protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
     protected GetResourceLoadAttributes_(): Record<string, string> | undefined;
     protected IsConcurrentResourceLoad_(): boolean;

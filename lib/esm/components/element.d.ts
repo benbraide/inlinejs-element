@@ -1,4 +1,4 @@
-import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
+import { GeneratedFunctionType, IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { IProperty } from "../decorators/property";
 import { INativeElement, IResourceTarget, CustomElementResourceType } from "../types";
 export interface ICustomElementOptions {
@@ -12,9 +12,18 @@ export interface ICustomElementAttributeChangeHandlerInfo {
     type?: string;
     checkStoredObject?: boolean;
 }
+export interface ICustomElementEvaluateOptions {
+    disableFunctionCall?: boolean;
+    waitPromise?: 'none' | 'default' | 'recursive';
+    voidOnly?: boolean;
+    callback?: (data: any) => void;
+    params?: any[];
+    contexts?: Record<string, any>;
+}
 export declare class CustomElement extends HTMLElement implements IResourceTarget {
     protected options_: ICustomElementOptions;
     protected componentId_: string;
+    protected storedProxyAccessHandler_: ((callback: () => void) => void) | null;
     protected resources_: CustomElementResourceType[];
     protected loadedResources_: any;
     protected loadingResources_: boolean;
@@ -45,6 +54,8 @@ export declare class CustomElement extends HTMLElement implements IResourceTarge
     IsBooleanAttribute(name: string): boolean | null;
     IsTemplate(): boolean | undefined;
     OnElementScopeCreated(params: IElementScopeCreatedCallbackParams): void;
+    EvaluateExpression(expression: string, options?: ICustomElementEvaluateOptions): any;
+    EvaluateWithStoredProxyAccessHandler(fn: GeneratedFunctionType, callback?: (data: any) => void, params?: any[], contexts?: Record<string, any>): any;
     protected AddPropertyScope_(name: string): void;
     protected FindProperty_(name: string): IProperty | undefined;
     protected GetAllProperties_(): IProperty[];
