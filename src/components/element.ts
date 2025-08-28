@@ -70,7 +70,12 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
 
     @Property({ type: 'string' })
     public UpdateComponentProperty(value: string){
-        FindComponentById(this.componentId_)?.FindScopeByRoot(this)?.SetName(value.trim());
+        const component = FindComponentById(this.componentId_);
+        if (component){
+            value = (value || '').trim();
+            component.FindScopeByRoot(this)?.SetName(value);
+            component.GetRoot() === this && component.SetName(value);
+        }
     }
     
     public constructor(protected options_: ICustomElementOptions = {}){
@@ -78,7 +83,8 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         
         (this.options_.isTemplate || this.options_.isHidden) && (this.style.display = 'none');
 
-        if (!this.options_.disableImplicitData && (!('InlineJS' in globalThis) || !IsObject(globalThis['InlineJS']) || !globalThis['InlineJS']['disableImplicitData'])){
+        const inlineGlobal = globalThis['InlineJS'];
+        if (!this.options_.disableImplicitData && (!IsObject(inlineGlobal) || !inlineGlobal['disableImplicitData'])){
             const dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
             const altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
             
@@ -267,8 +273,11 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         this.instancePropertyNames_ = this.instanceProperties_.map(p => p.name);
 
         scope.AddPostAttributesProcessCallback(() => {
+            //Set initial values from decorators, but only if the attribute is not already set
             this.instanceProperties_.forEach((property) => {
-                property.initial && property.setInitial && property.setInitial(this.EncodeValue_(property.initial, property.type), this);
+                if (property.initial !== undefined && property.setInitial && !this.hasAttribute(property.name)){
+                    property.setInitial(this.EncodeValue_(property.initial, property.type), this);
+                }
             });
             this.InitializeStateFromAttributes_();
             postAttributesCallback && postAttributesCallback();

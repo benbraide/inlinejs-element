@@ -1,4 +1,4 @@
-import { FindAncestor, IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
+import { FindAncestor, IElementScopeCreatedCallbackParams, JournalTry } from "@benbraide/inlinejs";
 
 import { Property } from "../decorators/property";
 import { CustomElement } from "./element";
@@ -22,6 +22,9 @@ export class ResourceTargetElement extends CustomElement implements IResourceTar
     @Property({ type: 'string' })
     public onloaded = '';
 
+    @Property({ type: 'string' })
+    public onloadederror = '';
+
     public constructor(){
         super({
             isHidden: true,
@@ -32,11 +35,18 @@ export class ResourceTargetElement extends CustomElement implements IResourceTar
         const wasLoaded = this.loadedResources_;
         return new Promise((resolve, reject) => {
             super.LoadResources().then((data) => {
-                !wasLoaded && this.onloaded && this.EvaluateExpression(this.onloaded, {
+                !wasLoaded && this.onloaded && JournalTry(() => this.EvaluateExpression(this.onloaded, {
                     disableFunctionCall: false,
-                });
+                    contexts: { data },
+                }));
                 resolve(data);
-            }).catch(reject);
+            }).catch((reason) => {
+                this.onloadederror && JournalTry(() => this.EvaluateExpression(this.onloadederror, {
+                    disableFunctionCall: false,
+                    contexts: { reason },
+                }));
+                reject(reason);
+            });
         });
     }
 

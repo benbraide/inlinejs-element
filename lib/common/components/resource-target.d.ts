@@ -7,6 +7,7 @@ export declare class ResourceTargetElement extends CustomElement implements IRes
     sequential: boolean;
     defer: boolean;
     onloaded: string;
+    onloadederror: string;
     constructor();
     LoadResources(): Promise<unknown>;
     LoadTargetResources(): Promise<unknown>;

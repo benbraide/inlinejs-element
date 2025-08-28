@@ -16,7 +16,7 @@ export interface IProperty {
     checkStoredObject: boolean;
     delimiter: string;
     handler: (value: any, context: HTMLElement) => void;
-    setInitial: ((cvalue: string, ontext: HTMLElement) => void) | null;
+    setInitial: ((value: string, context: HTMLElement) => void) | null;
 }
 export declare function GetGlobalPropertyScope(): string;
 export declare function GetProperties(): Record<string, IProperty[]>;

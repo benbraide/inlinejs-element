@@ -19,7 +19,7 @@ export interface IProperty{
     checkStoredObject: boolean;
     delimiter: string;
     handler: (value: any, context: HTMLElement) => void;
-    setInitial: ((cvalue: string, ontext: HTMLElement) => void) | null;
+    setInitial: ((value: string, context: HTMLElement) => void) | null;
 }
 
 const globalPropertyScope = RandomString();
@@ -48,9 +48,10 @@ export function GetPropertyScope(target: any, name?: string){
 export function Property(options?: IPropertyOptions){
     return function (target: any, key: string, descriptor?: PropertyDescriptor){
         let name = '', setInitial: ((value: string, context: HTMLElement) => void) | null = null;
-        if ((options?.initial !== undefined) || (!descriptor && options?.update)){
-            options.initial = (options.initial || target[key]);
-            if (options.type === 'boolean'){
+        
+        const initial = (options && 'initial' in options) ? options.initial : target[key];
+        if (initial !== undefined || (!descriptor && options?.update)){
+            if (options?.type === 'boolean'){
                 setInitial = (value, context) => {
                     if (value && value !== 'false'){
                         context.setAttribute(name, name);
@@ -72,7 +73,7 @@ export function Property(options?: IPropertyOptions){
             type: (options?.type || 'string'),
             spread: (options?.spread || ''),
             update: (options?.update || false),
-            initial: (options?.initial || undefined),
+            initial: initial,
             checkStoredObject: (options?.checkStoredObject || false),
             delimiter: (options?.delimiter || ','),
             handler: (null as unknown as ((value: any, context: HTMLElement) => void)),
