@@ -1,4 +1,3 @@
-import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { CustomElement } from "./element";
 import { IResourceTargetAdvanced } from "../types";
 export declare class ResourceTargetElement extends CustomElement implements IResourceTargetAdvanced {
@@ -11,7 +10,7 @@ export declare class ResourceTargetElement extends CustomElement implements IRes
     constructor();
     LoadResources(): Promise<unknown>;
     LoadTargetResources(): Promise<unknown>;
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
+    protected HandlePostAttributesProcessPostfix_(): void;
     protected GetResourceLoadAttributes_(): Record<string, string> | undefined;
     protected IsConcurrentResourceLoad_(): boolean;
     protected ShouldLoadResources_(): boolean;

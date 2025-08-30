@@ -1,12 +1,18 @@
 import {
+    BootstrapAndAttach,
     EvaluateLater,
+    FindAncestor,
     FindComponentById,
     GeneratedFunctionType,
+    GetConfig,
     GetGlobal,
+    ICustomElement,
+    IElementScope,
     IElementScopeCreatedCallbackParams,
+    InferComponent,
     IResourceConcept,
     IResourceMixedItemInfo,
-    IsObject,
+    IsCustomElement,
     JournalTry,
     ProcessDirectives,
     RetrieveStoredObject,
@@ -41,7 +47,7 @@ export interface ICustomElementEvaluateOptions{
     contexts?: Record<string, any>;
 }
 
-export class CustomElement extends HTMLElement implements IResourceTarget{
+export class CustomElement extends HTMLElement implements ICustomElement, IResourceTarget{
     protected componentId_ = '';
     protected storedProxyAccessHandler_: ((callback: () => void) => void) | null = null;
 
@@ -83,21 +89,27 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         
         (this.options_.isTemplate || this.options_.isHidden) && (this.style.display = 'none');
 
-        const inlineGlobal = globalThis['InlineJS'];
-        if (!this.options_.disableImplicitData && (!IsObject(inlineGlobal) || !inlineGlobal['disableImplicitData'])){
-            const dataDirective = GetGlobal().GetConfig().GetDirectiveName('data', false);
-            const altDataDirective = GetGlobal().GetConfig().GetDirectiveName('data', true);
-            
-            let farthestAncestor: Node | null = null;
-            for (let ancestor: Node | null = this; ancestor; ancestor = ancestor.parentNode){
-                if ((ancestor instanceof Element) && (ancestor.hasAttribute(dataDirective) || ancestor.hasAttribute(altDataDirective))){
-                    farthestAncestor = ancestor;
-                    break;
-                }
-            }
+        setTimeout(() => {
+            if (this.componentId_) return;// Initialized
 
-            !farthestAncestor && this.setAttribute(dataDirective, '');
-        }
+            if (InferComponent(this)) return;// Contained inside a mounted element
+
+            const config = GetConfig();
+            const dataDirectives = [config.GetDirectiveName('data', false), config.GetDirectiveName('data', true)];
+            
+            const found = FindAncestor(this, (el) => {
+                if (IsCustomElement(el)) return true;// Contained inside another custom element
+
+                if (dataDirectives.some(directive => el.hasAttribute(directive))) return true;// Contained inside element with a "hx-data" directive
+
+                return false;
+            });
+            
+            if (!found){// Not contained - add "hx-data" directive
+                this.setAttribute(dataDirectives[0], '');
+                BootstrapAndAttach(this);
+            }
+        }, 0);
     }
 
     public AddResource(resource: CustomElementResourceType){
@@ -205,11 +217,19 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
     }
 
     public IsTemplate(){
-        return this.options_.isTemplate;
+        return this.options_.isTemplate || false;
     }
 
     public OnElementScopeCreated(params: IElementScopeCreatedCallbackParams){
         this.HandleElementScopeCreated_(params);
+    }
+
+    public OnElementScopeMarked(scope: IElementScope){
+        this.HandleElementScopeMarked_(scope);
+    }
+
+    public OnElementScopeDestroyed(scope: IElementScope){
+        this.HandleElementScopeDestroyed_(scope);
     }
 
     public EvaluateExpression(expression: string, options?: ICustomElementEvaluateOptions){
@@ -252,7 +272,21 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         return props;
     }
 
-    protected HandleElementScopeCreated_({ scope, componentId }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
+    protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
+        this.HandleElementScopeCreatedPrefix_({ scope, ...rest });
+
+        scope.AddPostAttributesProcessCallback(() => {
+            this.HandlePostAttributesProcess_();
+            postAttributesCallback?.();
+        });
+
+        scope.AddPostProcessCallback(() => this.HandlePostProcess_());
+        scope.AddAttributeChangeCallback(name => (name && this.AttributeChanged_(name)));
+
+        this.HandleElementScopeCreatedPostfix_({ scope, ...rest });
+    }
+
+    protected HandleElementScopeCreatedPrefix_({ componentId }: IElementScopeCreatedCallbackParams){
         this.componentId_ = componentId;
         this.propertyScopes_ = this.ComputePropertyScopes_();
 
@@ -271,28 +305,38 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         });
 
         this.instancePropertyNames_ = this.instanceProperties_.map(p => p.name);
-
-        scope.AddPostAttributesProcessCallback(() => {
-            //Set initial values from decorators, but only if the attribute is not already set
-            this.instanceProperties_.forEach((property) => {
-                if (property.initial !== undefined && property.setInitial && !this.hasAttribute(property.name)){
-                    property.setInitial(this.EncodeValue_(property.initial, property.type), this);
-                }
-            });
-            this.InitializeStateFromAttributes_();
-            postAttributesCallback && postAttributesCallback();
-        });
-
-        scope.AddPostProcessCallback(() => (this.ShouldLoadResources_() && this.LoadResources()));
-
-        scope.AddAttributeChangeCallback(name => (name && this.AttributeChanged_(name)));
-
-        scope.AddUninitCallback(() => {
-            this.nativeElement_ = null;
-            this.storedProxyAccessHandler_ = null;
-        });
     }
 
+    protected HandleElementScopeCreatedPostfix_(params: IElementScopeCreatedCallbackParams){}
+
+    protected HandleElementScopeMarked_(scope: IElementScope){}
+
+    protected HandleElementScopeDestroyed_(scope: IElementScope){
+        this.nativeElement_ = null;
+        this.storedProxyAccessHandler_ = null;
+    }
+
+    protected HandlePostProcess_(){
+        this.ShouldLoadResources_() && this.LoadResources();
+    }
+
+    protected HandlePostAttributesProcess_(){
+        this.HandlePostAttributesProcessPrefix_();
+        
+        this.instanceProperties_.forEach((property) => {//Set initial values from decorators, but only if the attribute is not already set
+            if (property.initial !== undefined && property.setInitial && !this.hasAttribute(property.name)){
+                property.setInitial(this.EncodeValue_(property.initial, property.type), this);
+            }
+        });
+
+        this.InitializeStateFromAttributes_();
+        this.HandlePostAttributesProcessPostfix_();
+    }
+
+    protected HandlePostAttributesProcessPrefix_(){}
+
+    protected HandlePostAttributesProcessPostfix_(){}
+    
     protected InitializeStateFromAttributes_(whitelist?: Array<string>){
         let attributes = Array.from(this.attributes);
         whitelist && (attributes = attributes.filter(({ name }) => whitelist.includes(name)));
@@ -324,6 +368,10 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
     }
     
     protected DecodeValue_(value: string | null, type: string, delimiter?: string){
+        if (value === 'null' || value === 'undefined'){
+            return this.DecodeNullish_(type, value === 'null' ? null : undefined);
+        }
+        
         if (type === 'string'){
             return (value || '');
         }
@@ -357,6 +405,22 @@ export class CustomElement extends HTMLElement implements IResourceTarget{
         }
         
         return value;
+    }
+
+    protected DecodeNullish_(type: string, nullValue: null | undefined = null){
+        if (type === 'string'){
+            return '';
+        }
+
+        if (type === 'boolean'){
+            return false;
+        }
+
+        if (type === 'number'){
+            return NaN;
+        }
+
+        return nullValue;
     }
 
     protected SpreadValue_(value: string, keys: Array<string>){

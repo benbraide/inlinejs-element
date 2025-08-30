@@ -1,4 +1,4 @@
-import { GeneratedFunctionType, IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
+import { GeneratedFunctionType, ICustomElement, IElementScope, IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { IProperty } from "../decorators/property";
 import { INativeElement, IResourceTarget, CustomElementResourceType } from "../types";
 export interface ICustomElementOptions {
@@ -20,7 +20,7 @@ export interface ICustomElementEvaluateOptions {
     params?: any[];
     contexts?: Record<string, any>;
 }
-export declare class CustomElement extends HTMLElement implements IResourceTarget {
+export declare class CustomElement extends HTMLElement implements ICustomElement, IResourceTarget {
     protected options_: ICustomElementOptions;
     protected componentId_: string;
     protected storedProxyAccessHandler_: ((callback: () => void) => void) | null;
@@ -52,17 +52,28 @@ export declare class CustomElement extends HTMLElement implements IResourceTarge
     AddNonBooleanAttribute(name: string | Array<string>): void;
     RemoveNonBooleanAttribute(name: string | Array<string>): void;
     IsBooleanAttribute(name: string): boolean | null;
-    IsTemplate(): boolean | undefined;
+    IsTemplate(): boolean;
     OnElementScopeCreated(params: IElementScopeCreatedCallbackParams): void;
+    OnElementScopeMarked(scope: IElementScope): void;
+    OnElementScopeDestroyed(scope: IElementScope): void;
     EvaluateExpression(expression: string, options?: ICustomElementEvaluateOptions): any;
     EvaluateWithStoredProxyAccessHandler(fn: GeneratedFunctionType, callback?: (data: any) => void, params?: any[], contexts?: Record<string, any>): any;
     protected AddPropertyScope_(name: string): void;
     protected FindProperty_(name: string): IProperty | undefined;
     protected GetAllProperties_(): IProperty[];
-    protected HandleElementScopeCreated_({ scope, componentId }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
+    protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
+    protected HandleElementScopeCreatedPrefix_({ componentId }: IElementScopeCreatedCallbackParams): void;
+    protected HandleElementScopeCreatedPostfix_(params: IElementScopeCreatedCallbackParams): void;
+    protected HandleElementScopeMarked_(scope: IElementScope): void;
+    protected HandleElementScopeDestroyed_(scope: IElementScope): void;
+    protected HandlePostProcess_(): void;
+    protected HandlePostAttributesProcess_(): void;
+    protected HandlePostAttributesProcessPrefix_(): void;
+    protected HandlePostAttributesProcessPostfix_(): void;
     protected InitializeStateFromAttributes_(whitelist?: Array<string>): void;
     protected EncodeValue_(value: any, type: string): any;
     protected DecodeValue_(value: string | null, type: string, delimiter?: string): any;
+    protected DecodeNullish_(type: string, nullValue?: null | undefined): number | false | "" | null;
     protected SpreadValue_(value: string, keys: Array<string>): void;
     protected DispatchAttributeChange_(name: string, value: string | null): boolean | undefined;
     protected AttributeChanged_(name: string): void;

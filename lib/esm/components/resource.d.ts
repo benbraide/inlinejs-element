@@ -1,4 +1,4 @@
-import { IElementScopeCreatedCallbackParams, IResourceMixedItemInfo } from "@benbraide/inlinejs";
+import { IResourceMixedItemInfo } from "@benbraide/inlinejs";
 import { CustomElement } from "./element";
 import { IResourceSource } from "../types";
 export declare class ResourceElement extends CustomElement implements IResourceSource {
@@ -6,7 +6,7 @@ export declare class ResourceElement extends CustomElement implements IResourceS
     type: string;
     constructor();
     GetResource(): string | IResourceMixedItemInfo;
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
+    protected HandlePostAttributesProcessPostfix_(): void;
     protected ShouldLoadResources_(): boolean;
 }
 export declare function ResourceElementCompact(): void;

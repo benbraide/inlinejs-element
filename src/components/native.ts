@@ -25,9 +25,9 @@ export class NativeElement extends CustomElement implements INativeElement{
         return this.attributes_;
     }
 
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
+    protected HandleElementScopeCreatedPrefix_(params: IElementScopeCreatedCallbackParams){
         FindAncestor<any>(this, ancestor => ('AddNativeElement' in ancestor))?.AddNativeElement(this);
-        super.HandleElementScopeCreated_(params, postAttributesCallback);
+        super.HandleElementScopeCreatedPrefix_(params);
     }
 }
 

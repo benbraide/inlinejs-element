@@ -1,4 +1,4 @@
-import { FindAncestor, IElementScopeCreatedCallbackParams, JournalTry } from "@benbraide/inlinejs";
+import { FindAncestor, JournalTry } from "@benbraide/inlinejs";
 
 import { Property } from "../decorators/property";
 import { CustomElement } from "./element";
@@ -54,11 +54,8 @@ export class ResourceTargetElement extends CustomElement implements IResourceTar
         return this.LoadResources();
     }
 
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
-        super.HandleElementScopeCreated_(params, () => {
-            FindAncestor<IResourceTarget>(this, ancestor => ('AddResource' in ancestor))?.AddResource(this);
-            postAttributesCallback && postAttributesCallback();
-        });
+    protected HandlePostAttributesProcessPostfix_(){
+        FindAncestor<IResourceTarget>(this, ancestor => ('AddResource' in ancestor))?.AddResource(this);
     }
 
     protected GetResourceLoadAttributes_(): Record<string, string> | undefined{

@@ -49,7 +49,7 @@ export function Property(options?: IPropertyOptions){
     return function (target: any, key: string, descriptor?: PropertyDescriptor){
         let name = '', setInitial: ((value: string, context: HTMLElement) => void) | null = null;
         
-        const initial = (options && 'initial' in options) ? options.initial : target[key];
+        const initial = (options && 'initial' in options) ? options.initial : undefined;
         if (initial !== undefined || (!descriptor && options?.update)){
             if (options?.type === 'boolean'){
                 setInitial = (value, context) => {

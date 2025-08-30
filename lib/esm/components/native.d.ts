@@ -5,6 +5,6 @@ export declare class NativeElement extends CustomElement implements INativeEleme
     protected attributes_: INativeElementAttribute[];
     constructor();
     GetAttributes(): INativeElementAttribute[];
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
+    protected HandleElementScopeCreatedPrefix_(params: IElementScopeCreatedCallbackParams): void;
 }
 export declare function NativeElementCompact(): void;

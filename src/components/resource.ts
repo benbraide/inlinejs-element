@@ -1,4 +1,4 @@
-import { FindAncestor, IElementScopeCreatedCallbackParams, IResourceMixedItemInfo } from "@benbraide/inlinejs";
+import { FindAncestor, IResourceMixedItemInfo } from "@benbraide/inlinejs";
 
 import { Property } from "../decorators/property";
 import { CustomElement } from "./element";
@@ -30,11 +30,8 @@ export class ResourceElement extends CustomElement implements IResourceSource{
         return this.src;
     }
 
-    protected HandleElementScopeCreated_(params: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
-        super.HandleElementScopeCreated_(params, () => {
-            FindAncestor<IResourceTarget>(this, ancestor => ('AddResource' in ancestor))?.AddResource(this);
-            postAttributesCallback && postAttributesCallback();
-        });
+    protected HandlePostAttributesProcessPostfix_(){
+        FindAncestor<IResourceTarget>(this, ancestor => ('AddResource' in ancestor))?.AddResource(this);
     }
 
     protected ShouldLoadResources_(){
