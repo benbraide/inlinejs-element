@@ -42,6 +42,8 @@ export declare class CustomElement extends HTMLElement implements ICustomElement
     protected nonBooleanAttributes_: string[];
     UpdateComponentProperty(value: string): void;
     constructor(options_?: ICustomElementOptions);
+    connectedCallback(): void;
+    private InitializeIfNeeded_;
     AddResource(resource: CustomElementResourceType): void;
     RemoveResource(resource: CustomElementResourceType): void;
     LoadResources(): Promise<unknown>;

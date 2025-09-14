@@ -88,28 +88,35 @@ export class CustomElement extends HTMLElement implements ICustomElement, IResou
         super();
         
         (this.options_.isTemplate || this.options_.isHidden) && (this.style.display = 'none');
+    }
 
-        setTimeout(() => {
-            if (this.componentId_) return;// Initialized
+    public connectedCallback(){
+        // Use requestAnimationFrame to ensure proper timing after DOM insertion
+        requestAnimationFrame(() => {
+            this.InitializeIfNeeded_();
+        });
+    }
 
-            if (InferComponent(this)) return;// Contained inside a mounted element
+    private InitializeIfNeeded_(){
+        if (this.componentId_) return;// Already initialized
 
-            const config = GetConfig();
-            const dataDirectives = [config.GetDirectiveName('data', false), config.GetDirectiveName('data', true)];
-            
-            const found = FindAncestor(this, (el) => {
-                if (IsCustomElement(el)) return true;// Contained inside another custom element
+        if (InferComponent(this)) return;// Contained inside a mounted element
 
-                if (dataDirectives.some(directive => el.hasAttribute(directive))) return true;// Contained inside element with a "hx-data" directive
+        const config = GetConfig();
+        const dataDirectives = [config.GetDirectiveName('data', false), config.GetDirectiveName('data', true)];
+        
+        const found = FindAncestor(this, (el) => {
+            if (IsCustomElement(el)) return true;// Contained inside another custom element
 
-                return false;
-            });
-            
-            if (!found){// Not contained - add "hx-data" directive
-                this.setAttribute(dataDirectives[0], '');
-                BootstrapAndAttach(this);
-            }
-        }, 0);
+            if (dataDirectives.some(directive => el.hasAttribute(directive))) return true;// Contained inside element with a "hx-data" directive
+
+            return false;
+        });
+        
+        if (!found){// Not contained - add "hx-data" directive
+            this.setAttribute(dataDirectives[0], '');
+            BootstrapAndAttach(this);
+        }
     }
 
     public AddResource(resource: CustomElementResourceType){
