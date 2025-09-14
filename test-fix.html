@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OnElementScopeCreated Fix</title>
+</head>
+<body>
+    <h1>Test OnElementScopeCreated Fix</h1>
+    
+    <!-- Load InlineJS first -->
+    <script src="./node_modules/@benbraide/inlinejs/dist/inlinejs.js"></script>
+    <!-- Load our fixed element library -->
+    <script src="./dist/inlinejs-element.js"></script>
+
+    <div id="test-container">
+        <hx-native-element id="test1" data-value="hello world">Test content</hx-native-element>
+    </div>
+
+    <script>
+        console.log('Starting test...');
+        
+        function checkElementRegistration() {
+            console.log('Checking for hx-native-element element registration...');
+            const registeredElement = customElements.get('hx-native-element');
+            console.log('hx-native-element registered?', !!registeredElement);
+            
+            if (!registeredElement) {
+                console.log('Element not registered yet, waiting...');
+                setTimeout(checkElementRegistration, 500);
+                return;
+            }
+            
+            console.log('Element is registered! Constructor:', registeredElement);
+            
+            // Now upgrade the element if needed
+            const testEl = document.getElementById('test1');
+            console.log('Test element found:', !!testEl);
+            console.log('Test element tag name:', testEl?.tagName);
+            console.log('Test element constructor before upgrade:', testEl?.constructor?.name);
+            
+            // Force element upgrade
+            customElements.upgrade(testEl);
+            
+            console.log('Test element constructor after upgrade:', testEl?.constructor?.name);
+            
+            // Check if it has the OnElementScopeCreated method
+            if (testEl && typeof testEl.OnElementScopeCreated === 'function') {
+                console.log('✅ Element has OnElementScopeCreated method');
+                
+                // Override the method to track if it's called
+                const originalMethod = testEl.OnElementScopeCreated.bind(testEl);
+                testEl.scopeCreatedCalled = false;
+                testEl.OnElementScopeCreated = function(params) {
+                    console.log('✅ OnElementScopeCreated called!', params);
+                    testEl.scopeCreatedCalled = true;
+                    return originalMethod(params);
+                };
+                
+                console.log('Current componentId:', testEl.componentId_);
+                
+                // Re-check after a delay
+                setTimeout(() => {
+                    if (testEl.scopeCreatedCalled) {
+                        console.log('✅ SUCCESS: OnElementScopeCreated was called!');
+                        document.body.innerHTML += '<div style="color: green; font-size: 24px; font-weight: bold; margin: 20px; padding: 20px; border: 3px solid green; background-color: #d4edda;">✅ SUCCESS: OnElementScopeCreated was called!</div>';
+                    } else {
+                        console.log('⚠️ OnElementScopeCreated not called yet, checking componentId...');
+                        console.log('Component ID:', testEl.componentId_);
+                        
+                        if (testEl.componentId_) {
+                            document.body.innerHTML += '<div style="color: orange; font-size: 24px; font-weight: bold; margin: 20px; padding: 20px; border: 3px solid orange; background-color: #fff3cd;">⚠️ Element initialized but OnElementScopeCreated not tracked properly (componentId: ' + testEl.componentId_ + ')</div>';
+                        } else {
+                            document.body.innerHTML += '<div style="color: red; font-size: 24px; font-weight: bold; margin: 20px; padding: 20px; border: 3px solid red; background-color: #f8d7da;">❌ FAILED: OnElementScopeCreated was not called</div>';
+                        }
+                    }
+                }, 2000);
+            } else {
+                console.log('❌ Element does not have OnElementScopeCreated method');
+                document.body.innerHTML += '<div style="color: red; font-size: 24px; font-weight: bold; margin: 20px; padding: 20px; border: 3px solid red; background-color: #f8d7da;">❌ FAILED: Element does not have OnElementScopeCreated method</div>';
+            }
+        }
+        
+        // Start checking after a short delay
+        setTimeout(checkElementRegistration, 500);
+    </script>
+</body>
+</html>

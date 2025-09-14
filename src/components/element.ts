@@ -89,7 +89,7 @@ export class CustomElement extends HTMLElement implements ICustomElement, IResou
         
         (this.options_.isTemplate || this.options_.isHidden) && (this.style.display = 'none');
 
-        setTimeout(() => {
+        const initialize = () => {
             if (this.componentId_) return;// Initialized
 
             if (InferComponent(this)) return;// Contained inside a mounted element
@@ -109,7 +109,15 @@ export class CustomElement extends HTMLElement implements ICustomElement, IResou
                 this.setAttribute(dataDirectives[0], '');
                 BootstrapAndAttach(this);
             }
-        }, 0);
+        };
+
+        // Wait for the custom element to be defined before initializing to ensure OnElementScopeCreated is called
+        customElements.whenDefined(this.tagName.toLowerCase()).then(() => {
+            setTimeout(initialize, 0);
+        }).catch(() => {
+            // Fallback if whenDefined fails
+            setTimeout(initialize, 0);
+        });
     }
 
     public AddResource(resource: CustomElementResourceType){
