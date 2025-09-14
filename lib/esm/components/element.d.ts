@@ -6,7 +6,7 @@ export interface ICustomElementOptions {
     isTemplate?: boolean;
     isHidden?: boolean;
 }
-export declare type ICustomElementAttributeChangeHandlerCallback = (value: any, context: HTMLElement) => void;
+export type ICustomElementAttributeChangeHandlerCallback = (value: any, context: HTMLElement) => void;
 export interface ICustomElementAttributeChangeHandlerInfo {
     handler: ICustomElementAttributeChangeHandlerCallback;
     type?: string;
