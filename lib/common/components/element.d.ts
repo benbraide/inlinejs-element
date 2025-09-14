@@ -46,7 +46,7 @@ export declare class CustomElement extends HTMLElement implements ICustomElement
     private InitializeIfNeeded_;
     AddResource(resource: CustomElementResourceType): void;
     RemoveResource(resource: CustomElementResourceType): void;
-    LoadResources(): Promise<any>;
+    LoadResources(): Promise<unknown>;
     AddNativeElement(element: INativeElement & HTMLElement): void;
     RemoveNativeElement(element: INativeElement): void;
     AddBooleanAttribute(name: string | Array<string>): void;
